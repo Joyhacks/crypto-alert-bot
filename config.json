@@ -1,0 +1,5 @@
+{
+  "coin_id": ["bitcoin", "ethereum", "solana", "dogecoin"]
+  "target_price": 65000,
+  "percentage_change": 5
+}
