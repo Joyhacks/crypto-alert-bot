@@ -1,5 +1,9 @@
 {
-  "coin_id": ["bitcoin", "ethereum", "solana", "dogecoin"]
-  "target_price": 65000,
-  "percentage_change": 5
+  "interval_seconds": 60,
+  "alerts": [
+    { "coin": "bitcoin", "above": 120000, "change_24h": 5 },
+    { "coin": "ethereum", "below": 2500 },
+    { "coin": "solana", "change_24h": 8 },
+    { "coin": "dogecoin", "above": 0.5, "below": 0.1 }
+  ]
 }

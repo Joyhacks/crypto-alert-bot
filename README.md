@@ -1,140 +1,61 @@
-# Telegram Crypto Price Alert Bot
+# crypto-alert-bot
 
-A Python bot that monitors cryptocurrency prices using the CoinGecko API and sends Telegram alerts when price targets or percentage changes are met.
+A small Python bot that watches coin prices on CoinGecko and messages you on Telegram when a price crosses a level or moves more than a set percentage in 24 hours.
 
-## Features
+One request covers every coin you watch, so a minute-by-minute check stays well inside CoinGecko's free rate limit. Alerts are edge-triggered: you get one message when a condition becomes true, not one every minute while it stays true. It re-arms once the condition clears.
 
-- 🔍 Monitors cryptocurrency prices every 60 seconds
-- 💰 Sends alerts when price reaches your target
-- 📊 Sends alerts when 24h price change exceeds your threshold
-- 📱 Delivers notifications via Telegram
-- 🖥️ Displays real-time price logs in console
+## Setup
 
-## Setup Instructions
+You need a Telegram bot token and your chat ID.
 
-### Step 1: Create a Telegram Bot
+1. In Telegram, message `@BotFather`, send `/newbot` and follow the prompts. It gives you a token like `123456789:AA...`.
+2. Send any message to your new bot, then open `https://api.telegram.org/bot<token>/getUpdates` in a browser. Your chat ID is the `"chat":{"id": ...}` value.
 
-1. Open Telegram and search for **@BotFather**
-2. Start a chat and send the command: `/newbot`
-3. Follow the prompts:
-   - Choose a name for your bot (e.g., "My Crypto Alert Bot")
-   - Choose a username for your bot (must end in 'bot', e.g., "my_crypto_alert_bot")
-4. BotFather will give you a **bot token** that looks like this:
-   ```
-   123456789:ABCdefGHIjklMNOpqrsTUVwxyz1234567890
-   ```
-5. Save this token - you'll need it for the config file
+Then:
 
-### Step 2: Find Your Chat ID
+```bash
+pip install -r requirements.txt
+export TELEGRAM_BOT_TOKEN=123456789:AA...
+export TELEGRAM_CHAT_ID=987654321
+python main.py               # reads config.json
+python main.py other.json    # or a different config
+```
 
-**Method 1: Using @userinfobot**
-1. Search for **@userinfobot** in Telegram
-2. Start a chat with the bot
-3. It will automatically send you your chat ID
+The token stays in the environment, never in the config file, and it's kept out of the logs. Telegram's error messages include the request URL, which contains the token.
 
-**Method 2: Using @raw_data_bot**
-1. Search for **@raw_data_bot** in Telegram
-2. Start a chat with the bot
-3. Send any message
-4. Look for the `"id"` field in the response (your chat ID)
-
-**Method 3: Using your bot's API**
-1. Send a message to your newly created bot (the one from Step 1)
-2. Open this URL in your browser (replace `YOUR_BOT_TOKEN` with your actual token):
-   ```
-   https://api.telegram.org/botYOUR_BOT_TOKEN/getUpdates
-   ```
-3. Look for the `"chat":{"id":` field in the JSON response
-
-### Step 3: Configure the Bot
-
-1. Open the `config.json` file
-2. Replace the placeholder values with your actual settings:
+## Config
 
 ```json
 {
-  "coin_id": "bitcoin",
-  "target_price": 65000,
-  "percentage_change": 5,
-  "telegram_bot_token": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz1234567890",
-  "telegram_chat_id": "987654321"
+  "interval_seconds": 60,
+  "alerts": [
+    { "coin": "bitcoin", "above": 120000, "change_24h": 5 },
+    { "coin": "ethereum", "below": 2500 },
+    { "coin": "dogecoin", "above": 0.5, "below": 0.1 }
+  ]
 }
 ```
 
-**Configuration Options:**
+Each alert needs a CoinGecko coin ID and at least one of:
 
-- `coin_id`: The cryptocurrency to monitor (e.g., "bitcoin", "ethereum", "solana", "dogecoin")
-  - Find valid coin IDs at: https://api.coingecko.com/api/v3/coins/list
-- `target_price`: Price threshold in USD (e.g., 65000). Set to 0 to disable.
-- `percentage_change`: 24-hour change threshold (e.g., 5 for ±5%). Set to 0 to disable.
-- `telegram_bot_token`: Your bot token from BotFather
-- `telegram_chat_id`: Your Telegram chat ID
+| Field | Fires when |
+|---|---|
+| `above` | the USD price is at or above this |
+| `below` | the USD price is at or below this |
+| `change_24h` | the 24h change is at least this many percent, up or down |
 
-### Step 4: Run the Bot on Replit
+Coin IDs are CoinGecko's, which aren't always the ticker (`ripple`, not `xrp`). The full list is at `https://api.coingecko.com/api/v3/coins/list`. If an ID is wrong the bot logs it every cycle instead of failing silently.
 
-1. Click the **Run** button at the top of the Replit editor
-2. The bot will start monitoring prices and display logs in the console
-3. You'll receive Telegram alerts when your conditions are met
+`interval_seconds` has a floor of 30. A bad config stops the bot at startup with the field that's wrong.
 
-The bot runs continuously and checks prices every 60 seconds.
+## Tests
 
-## How It Works
-
-1. **Price Monitoring**: The bot fetches live cryptocurrency prices from the CoinGecko API
-2. **Target Price Alert**: If the price reaches or exceeds your `target_price`, you get an alert
-3. **Percentage Change Alert**: If the 24-hour price change is ±`percentage_change`% or more, you get an alert
-4. **Smart Alerts**: Each alert is sent only once until the condition resets (e.g., price drops below target)
-
-## Example Output
-
-Console logs will look like this:
-```
-Starting Crypto Price Alert Bot...
-==================================================
-Monitoring: BITCOIN
-Target Price: $65,000.00
-24h Change Alert: ±5%
-==================================================
-
-[2025-10-03 14:30:15] BITCOIN: $64,234.50 | 24h Change: +3.21%
-[2025-10-03 14:31:15] BITCOIN: $64,289.75 | 24h Change: +3.28%
-[2025-10-03 14:32:15] BITCOIN: $65,012.00 | 24h Change: +5.45%
-  ✓ Alert sent: Price reached target: $65,012.00 (Target: $65,000.00)
-  ✓ Alert sent: 24h change alert: increased by 5.45% (Threshold: ±5%)
+```bash
+python -m unittest -v
 ```
 
-## Troubleshooting
+The tests cover config validation, the alert state machine (fire once, re-arm, retry after a failed send, no repeat after an API gap) and that the token never reaches the logs. No network calls.
 
-**Bot doesn't send messages:**
-- Make sure you've started a chat with your bot first (send it any message)
-- Verify your bot token and chat ID are correct in `config.json`
-- Check the console for error messages
+## Running it long-term
 
-**"Coin not found" error:**
-- Check that your `coin_id` is valid using the CoinGecko API
-- Use lowercase names (e.g., "bitcoin" not "Bitcoin")
-
-**API rate limits:**
-- The free CoinGecko API allows ~50 calls per minute
-- This bot makes 1 call per minute, well within limits
-
-## Supported Cryptocurrencies
-
-You can monitor any cryptocurrency available on CoinGecko. Popular options:
-- bitcoin
-- ethereum
-- solana
-- cardano
-- dogecoin
-- shiba-inu
-- ripple
-- polkadot
-
-For a complete list, visit: https://api.coingecko.com/api/v3/coins/list
-
-## Notes
-
-- The bot uses the free CoinGecko API (no authentication required)
-- Alerts are sent only once per condition until it resets
-- The bot will keep running until you stop it manually
-- All logs are displayed in the console for monitoring
+It's a plain loop, so anything that keeps a process alive works: a systemd service, a `tmux` session, or a small container on Fly.io or Railway. Alert state lives in memory, so a restart while a condition holds sends that alert once more.
